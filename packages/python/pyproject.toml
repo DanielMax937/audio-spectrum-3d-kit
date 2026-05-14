@@ -1,0 +1,19 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "audio-spectrum-3d"
+version = "0.1.0"
+description = "Audio feature extraction and portable 3D spectrogram mesh generation."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "LungListener contributors" }]
+dependencies = ["numpy>=1.24"]
+
+[project.scripts]
+audio-spectrum3d = "audio_spectrum_3d.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
