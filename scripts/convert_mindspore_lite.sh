@@ -36,7 +36,7 @@ docker run --rm --platform linux/amd64 \
   -v "$TOOLS_DIR:/tools" \
   -v "$(dirname "$INPUT_ONNX"):/model-in:ro" \
   -v "$(cd "$(dirname "$OUTPUT_PREFIX")" && pwd):/model-out" \
-  python:3.10-slim sh -lc "
+  debian:bookworm-slim sh -lc "
     set -eu
     base=/tools/mindspore-lite-${MSLITE_VERSION}-linux-x64
     export LD_LIBRARY_PATH=\"\$base/tools/converter/lib:\$base/runtime/lib:\${LD_LIBRARY_PATH:-}\"

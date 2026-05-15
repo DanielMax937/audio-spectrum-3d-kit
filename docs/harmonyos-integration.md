@@ -20,7 +20,9 @@ const tensor = await MelTensor.compute(pcmData, 16000);
 const mesh = SpectrumMeshBuilder.build(spec);
 ```
 
-The HarmonyOS implementation is intentionally renderer-neutral. If you use ArkGraphics 3D, map the result into `CustomGeometry`:
+## ArkGraphics 3D
+
+Map `SpectrumMesh` into `CustomGeometry`:
 
 ```ts
 const geometry = new CustomGeometry();
@@ -31,4 +33,20 @@ geometry.normals = mesh.normals;
 geometry.colors = mesh.colors;
 ```
 
-For larger files, run feature extraction on a Worker or TaskPool task. The included `MelTensor.compute()` cooperatively yields during processing, but a background thread is still recommended for production apps.
+## Threading
+
+For larger files, run feature extraction on a Worker or TaskPool task. The included `MelTensor.compute()` cooperatively yields during processing, but background execution is still recommended for production apps.
+
+## PCM Input
+
+The package expects mono PCM samples normalized to `[-1, 1]`:
+
+```ts
+const pcmData: number[] = [-0.12, 0.03, 0.18];
+```
+
+If your app records 16-bit PCM, convert each sample with:
+
+```ts
+const normalized = int16Sample / 32768.0;
+```

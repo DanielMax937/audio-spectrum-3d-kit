@@ -1,10 +1,4 @@
 .DS_Store
-__pycache__/
-*.py[cod]
-*.egg-info/
-.venv/
-build/
-dist/
 *.npy
 *.npz
 *.wav
@@ -12,7 +6,4 @@ dist/
 *.ms
 *.pt
 *.pth
-output.json
-spectrum3d.json
-examples/python-cli/demo-spectrum3d.json
 node_modules/

@@ -1,8 +1,8 @@
-# Feature Format
+# HarmonyOS Feature Format
 
 ## Spectrogram
 
-The STFT spectrogram is normalized to `[0, 1]`.
+`Spectrogram.compute()` returns a normalized STFT spectrogram.
 
 Defaults:
 
@@ -17,19 +17,19 @@ db range = [-80, 0]
 
 Returned fields:
 
-```json
-{
-  "timeBins": 154,
-  "freqBins": 123,
-  "matrix": [[0.0, 0.1]],
-  "maxFreq": 2000,
-  "maxTime": 5.0
+```ts
+interface SpectrogramData {
+  timeBins: number;
+  freqBins: number;
+  matrix: number[][];
+  maxFreq: number;
+  maxTime: number;
 }
 ```
 
 ## Mel Tensor
 
-The model-ready tensor uses three log-mel views:
+`MelTensor.compute()` returns three log-mel views:
 
 | Channel | Mels | Hop |
 |---|---:|---:|
@@ -39,11 +39,21 @@ The model-ready tensor uses three log-mel views:
 
 Each channel is resized to `128 x 128` and min-max normalized independently.
 
-Python shape is `3 x 128 x 128` (`CHW`). For most edge runtimes, add a batch dimension to get `1 x 3 x 128 x 128`.
+Returned shape:
+
+```text
+3 x 128 x 128
+```
+
+The `Float32Array` is channel-first (`CHW`). For MindSpore Lite inference, add a batch dimension conceptually and feed the buffer as:
+
+```text
+1 x 3 x 128 x 128
+```
 
 ## 3D Mesh
 
-The mesh is a regular height map sampled from the spectrogram:
+`SpectrumMeshBuilder.build()` emits a regular height map sampled from the spectrogram:
 
 ```text
 default grid: 72 x 44
@@ -53,4 +63,14 @@ height scale: 2.0
 topology: triangle list
 ```
 
-`indices` are emitted as a flat triangle-list index array.
+Returned fields:
+
+```ts
+interface SpectrumMesh {
+  vertices: Vec3[];
+  normals: Vec3[];
+  colors: ColorRGBA[];
+  indices: number[];
+  stats: MeshStats;
+}
+```

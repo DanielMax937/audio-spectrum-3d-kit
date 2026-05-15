@@ -1,17 +1,66 @@
-# audio-spectrum-3d-kit
+# HarmonyOS Audio Spectrum 3D Kit
 
-Audio feature extraction and portable 3D spectrogram mesh generation.
+HarmonyOS ArkTS toolkit for audio feature extraction and 3D spectrogram mesh generation.
 
-This repository packages the reusable audio pipeline extracted from LungListener into a general-purpose toolkit. It takes a WAV or PCM stream, computes normalized spectrogram data, builds a 3-channel `3 x 128 x 128` log-mel tensor, and emits a 3D height-map mesh that can be rendered by HarmonyOS ArkGraphics 3D, Three.js, Unity, or any mesh renderer.
+This repository packages the reusable audio pipeline extracted from LungListener into a HarmonyOS-focused component. It takes PCM audio samples, computes normalized spectrogram data, builds a 3-channel `3 x 128 x 128` log-mel tensor, and emits a 3D height-map mesh that can be adapted to ArkGraphics 3D `CustomGeometry`.
 
-It does not include patient management, medical workflow UI, private signing material, or clinical datasets.
+It does not include patient management, medical workflow UI, private signing material, clinical datasets, or non-HarmonyOS runtime packages.
 
 ## What It Provides
 
-- Python package and CLI for WAV to spectrogram, mel tensor, and mesh JSON.
-- HarmonyOS ArkTS core algorithms for STFT, mel tensor extraction, and mesh construction.
-- A model hook format for plugging in your own ONNX or MindSpore Lite classifier.
-- MindSpore Lite conversion notes for fixed-shape `1 x 3 x 128 x 128` NCHW models.
+- HarmonyOS ArkTS core algorithms for STFT spectrogram extraction.
+- HarmonyOS ArkTS log-mel tensor extraction compatible with `1 x 3 x 128 x 128` NCHW model input.
+- HarmonyOS ArkTS 3D mesh construction for ArkGraphics 3D.
+- MindSpore Lite conversion notes for fixed-shape HarmonyOS edge models.
+
+## Repository Layout
+
+```text
+packages/harmonyos/src/main/ets/audio_spectrum_3d/
+  Constants.ets
+  MelTensor.ets
+  Spectrogram.ets
+  SpectrumMeshBuilder.ets
+  Types.ets
+  index.ets
+docs/
+  feature-format.md
+  harmonyos-integration.md
+  mindspore-lite-model-hook.md
+scripts/
+  convert_mindspore_lite.sh
+```
+
+## HarmonyOS Quick Start
+
+Copy the ArkTS package into your HarmonyOS module:
+
+```text
+packages/harmonyos/src/main/ets/audio_spectrum_3d
+```
+
+Then import:
+
+```ts
+import { Spectrogram, MelTensor, SpectrumMeshBuilder } from './audio_spectrum_3d';
+
+const spec = Spectrogram.compute(pcmData, 16000);
+const tensor = await MelTensor.compute(pcmData, 16000);
+const mesh = SpectrumMeshBuilder.build(spec);
+```
+
+Map the mesh into ArkGraphics 3D:
+
+```ts
+const geometry = new CustomGeometry();
+geometry.topology = PrimitiveTopology.TRIANGLE_LIST;
+geometry.vertices = mesh.vertices;
+geometry.indices = mesh.indices;
+geometry.normals = mesh.normals;
+geometry.colors = mesh.colors;
+```
+
+For production apps, run feature extraction on a Worker or TaskPool task. `MelTensor.compute()` cooperatively yields while processing, but background execution is still recommended for long recordings.
 
 ## Feature Format
 
@@ -30,79 +79,34 @@ channels:
   2: 64-mel, hop 512
 ```
 
+Add a batch dimension before model inference:
+
+```text
+1 x 3 x 128 x 128
+```
+
 The 3D mesh output contains:
 
 ```text
-vertices: [[x, y, z], ...]
-normals: [[x, y, z], ...]
-colors: [[r, g, b, a], ...]
+vertices: Vec3[]
+normals: Vec3[]
+colors: ColorRGBA[]
 indices: triangle-list indices
 stats: time/frequency bin counts and triangle count
 ```
 
-## Python Quick Start
-
-```bash
-cd packages/python
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -e .
-
-audio-spectrum3d input.wav --out output.json --tensor-out mel.npy
-```
-
-Use the API directly:
-
-```python
-from audio_spectrum_3d import load_wav_mono, spectrogram, mel_tensor, build_spectrum_mesh
-
-pcm, sr = load_wav_mono("input.wav")
-spec = spectrogram(pcm)
-tensor = mel_tensor(pcm)       # (3, 128, 128), float32
-mesh = build_spectrum_mesh(spec)
-```
-
-## HarmonyOS Quick Start
-
-Copy `packages/harmonyos/src/main/ets/audio_spectrum_3d` into your HarmonyOS module, then:
-
-```ts
-import { Spectrogram, MelTensor, SpectrumMeshBuilder } from './audio_spectrum_3d';
-
-const spec = Spectrogram.compute(pcmData, 16000);
-const tensor = await MelTensor.compute(pcmData, 16000);
-const mesh = SpectrumMeshBuilder.build(spec);
-```
-
-`mesh.vertices`, `mesh.indices`, `mesh.normals`, and `mesh.colors` can be adapted to `CustomGeometry`, WebGL, or another rendering target.
-
 ## Model Hook
 
-This package intentionally keeps model inference optional. A classifier can consume the mel tensor as `1 x 3 x 128 x 128` NCHW:
+This package keeps inference optional. A HarmonyOS classifier can consume the mel tensor through `@kit.MindSporeLiteKit` after converting an ONNX model to `.ms`:
 
 ```text
 input name: input
 input shape: 1,3,128,128
+input layout: NCHW
 output shape: 1,N
 ```
 
-For the LungListener v8 lung-sound classifier, `N=4` with labels:
-
-```text
-normal, crackle, wheeze, both
-```
-
-That model is a domain-specific example, not required by this package.
-
-## Repository Layout
-
-```text
-packages/python/      Python package and CLI
-packages/harmonyos/   HarmonyOS ArkTS core algorithms
-examples/python-cli/  Minimal example script
-docs/                 Integration and format notes
-scripts/              Optional model conversion helper
-```
+The conversion helper is in `scripts/convert_mindspore_lite.sh`.
 
 ## Safety
 
