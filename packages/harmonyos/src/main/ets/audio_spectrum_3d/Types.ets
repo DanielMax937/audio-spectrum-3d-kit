@@ -42,3 +42,12 @@ export interface MeshConfig {
   plotDepth: number;
   heightScale: number;
 }
+
+export type AudioSampleFormat = 'float32' | 'pcm16' | 'uint8';
+
+export type AudioSampleBuffer = number[] | Int16Array | Uint8Array | Float32Array;
+
+export interface AudioInputOptions {
+  sampleRate?: number;
+  format: AudioSampleFormat;
+}

@@ -9,6 +9,7 @@ It does not include patient management, medical workflow UI, private signing mat
 ## What It Provides
 
 - HarmonyOS ArkTS core algorithms for STFT spectrogram extraction.
+- HarmonyOS ArkTS audio input normalization for common sample formats.
 - HarmonyOS ArkTS log-mel tensor extraction compatible with `1 x 3 x 128 x 128` NCHW model input.
 - HarmonyOS ArkTS 3D mesh construction for ArkGraphics 3D.
 - MindSpore Lite conversion notes for fixed-shape HarmonyOS edge models.
@@ -18,6 +19,7 @@ It does not include patient management, medical workflow UI, private signing mat
 ```text
 packages/harmonyos/src/main/ets/audio_spectrum_3d/
   Constants.ets
+  AudioInput.ets
   MelTensor.ets
   Spectrogram.ets
   SpectrumMeshBuilder.ets
@@ -42,11 +44,32 @@ packages/harmonyos/src/main/ets/audio_spectrum_3d
 Then import:
 
 ```ts
-import { Spectrogram, MelTensor, SpectrumMeshBuilder } from './audio_spectrum_3d';
+import { AudioInput, SpectrumMeshBuilder } from './audio_spectrum_3d';
 
-const spec = Spectrogram.compute(pcmData, 16000);
-const tensor = await MelTensor.compute(pcmData, 16000);
+const spec = AudioInput.spectrogram(int16Pcm, {
+  format: 'pcm16',
+  sampleRate: 16000
+});
+const tensor = await AudioInput.melTensor(int16Pcm, {
+  format: 'pcm16',
+  sampleRate: 16000
+});
 const mesh = SpectrumMeshBuilder.build(spec);
+```
+
+Supported input formats:
+
+```text
+pcm16   Int16Array or number[] with signed 16-bit PCM values
+uint8   Uint8Array or number[] with unsigned 8-bit PCM values
+float32 Float32Array or number[] already near [-1, 1]
+```
+
+If you already have normalized `number[]` samples, you can still call lower-level APIs directly:
+
+```ts
+const spec = Spectrogram.compute(normalizedPcm, 16000);
+const tensor = await MelTensor.compute(normalizedPcm, 16000);
 ```
 
 Map the mesh into ArkGraphics 3D:
@@ -63,6 +86,16 @@ geometry.colors = mesh.colors;
 For production apps, run feature extraction on a Worker or TaskPool task. `MelTensor.compute()` cooperatively yields while processing, but background execution is still recommended for long recordings.
 
 ## Feature Format
+
+Input audio is normalized by `AudioInput` before feature extraction:
+
+```text
+pcm16:   sample / 32768.0
+uint8:   (sample - 128.0) / 128.0
+float32: clamp(sample, -1, 1)
+```
+
+All normalized samples are clamped to `[-1, 1]`.
 
 The default model-ready feature tensor uses:
 

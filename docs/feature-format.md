@@ -1,5 +1,33 @@
 # HarmonyOS Feature Format
 
+# Audio Input Normalization
+
+Use `AudioInput` for automatic normalization:
+
+```ts
+const pcm = AudioInput.normalize(rawSamples, 'pcm16');
+const spec = AudioInput.spectrogram(rawSamples, { format: 'pcm16', sampleRate: 16000 });
+const tensor = await AudioInput.melTensor(rawSamples, { format: 'pcm16', sampleRate: 16000 });
+```
+
+Supported formats:
+
+```text
+pcm16   Int16Array or number[] with signed 16-bit PCM values
+uint8   Uint8Array or number[] with unsigned 8-bit PCM values
+float32 Float32Array or number[] already near [-1, 1]
+```
+
+Normalization rules:
+
+```text
+pcm16:   sample / 32768.0
+uint8:   (sample - 128.0) / 128.0
+float32: clamp(sample, -1, 1)
+```
+
+The normalized signal is always clamped to `[-1, 1]`.
+
 ## Spectrogram
 
 `Spectrogram.compute()` returns a normalized STFT spectrogram.
