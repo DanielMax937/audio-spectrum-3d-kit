@@ -1,20 +1,20 @@
 # HarmonyOS Audio Spectrum 3D Kit
 
-HarmonyOS ArkTS toolkit for audio feature extraction and 3D spectrogram mesh generation.
+面向 HarmonyOS / ArkTS 的音频特征提取与 3D 声谱网格生成工具包。
 
-This repository packages the reusable audio pipeline extracted from LungListener into a HarmonyOS-focused component. It takes PCM audio samples, computes normalized spectrogram data, builds a 3-channel `3 x 128 x 128` log-mel tensor, and emits a 3D height-map mesh that can be adapted to ArkGraphics 3D `CustomGeometry`.
+这个仓库把 LungListener 中可复用的音频处理流程抽成独立组件：输入 PCM 音频，自动完成采样值归一化，生成归一化声谱图、`3 x 128 x 128` 三通道 log-mel 特征张量，以及可映射到 ArkGraphics 3D `CustomGeometry` 的 3D 高度图网格。
 
-It does not include patient management, medical workflow UI, private signing material, clinical datasets, or non-HarmonyOS runtime packages.
+本仓库不包含患者管理、医疗业务 UI、签名文件、临床数据集，也不包含非 HarmonyOS 运行时包。
 
-## What It Provides
+## 能力
 
-- HarmonyOS ArkTS core algorithms for STFT spectrogram extraction.
-- HarmonyOS ArkTS audio input normalization for common sample formats.
-- HarmonyOS ArkTS log-mel tensor extraction compatible with `1 x 3 x 128 x 128` NCHW model input.
-- HarmonyOS ArkTS 3D mesh construction for ArkGraphics 3D.
-- MindSpore Lite conversion notes for fixed-shape HarmonyOS edge models.
+- HarmonyOS ArkTS STFT 声谱图计算。
+- 常见音频采样格式自动归一化。
+- 生成兼容 `1 x 3 x 128 x 128` NCHW 模型输入的 log-mel 特征张量。
+- 生成适配 ArkGraphics 3D 的 3D 声谱网格。
+- 提供 MindSpore Lite 固定输入形状模型转换说明。
 
-## Repository Layout
+## 目录结构
 
 ```text
 packages/harmonyos/src/main/ets/audio_spectrum_3d/
@@ -33,15 +33,21 @@ scripts/
   convert_mindspore_lite.sh
 ```
 
-## HarmonyOS Quick Start
+## 快速使用
 
-Copy the ArkTS package into your HarmonyOS module:
+把 ArkTS 包复制到你的 HarmonyOS 模块中：
 
 ```text
 packages/harmonyos/src/main/ets/audio_spectrum_3d
 ```
 
-Then import:
+例如复制到：
+
+```text
+entry/src/main/ets/audio_spectrum_3d
+```
+
+然后在业务代码中导入：
 
 ```ts
 import { AudioInput, SpectrumMeshBuilder } from './audio_spectrum_3d';
@@ -50,29 +56,45 @@ const spec = AudioInput.spectrogram(int16Pcm, {
   format: 'pcm16',
   sampleRate: 16000
 });
+
 const tensor = await AudioInput.melTensor(int16Pcm, {
   format: 'pcm16',
   sampleRate: 16000
 });
+
 const mesh = SpectrumMeshBuilder.build(spec);
 ```
 
-Supported input formats:
+## 输入格式
+
+用户只需要声明输入类型，包会自动归一化：
 
 ```text
-pcm16   Int16Array or number[] with signed 16-bit PCM values
-uint8   Uint8Array or number[] with unsigned 8-bit PCM values
-float32 Float32Array or number[] already near [-1, 1]
+pcm16   Int16Array 或 number[]，有符号 16-bit PCM
+uint8   Uint8Array 或 number[]，无符号 8-bit PCM
+float32 Float32Array 或 number[]，数值已接近 [-1, 1]
 ```
 
-If you already have normalized `number[]` samples, you can still call lower-level APIs directly:
+归一化规则：
+
+```text
+pcm16:   sample / 32768.0
+uint8:   (sample - 128.0) / 128.0
+float32: clamp(sample, -1, 1)
+```
+
+所有归一化后的采样都会被限制在 `[-1, 1]`。
+
+如果你已经有归一化后的 `number[]`，也可以直接调用底层 API：
 
 ```ts
 const spec = Spectrogram.compute(normalizedPcm, 16000);
 const tensor = await MelTensor.compute(normalizedPcm, 16000);
 ```
 
-Map the mesh into ArkGraphics 3D:
+## 映射到 ArkGraphics 3D
+
+`SpectrumMeshBuilder.build()` 返回的网格可以映射到 `CustomGeometry`：
 
 ```ts
 const geometry = new CustomGeometry();
@@ -83,21 +105,9 @@ geometry.normals = mesh.normals;
 geometry.colors = mesh.colors;
 ```
 
-For production apps, run feature extraction on a Worker or TaskPool task. `MelTensor.compute()` cooperatively yields while processing, but background execution is still recommended for long recordings.
+## 特征格式
 
-## Feature Format
-
-Input audio is normalized by `AudioInput` before feature extraction:
-
-```text
-pcm16:   sample / 32768.0
-uint8:   (sample - 128.0) / 128.0
-float32: clamp(sample, -1, 1)
-```
-
-All normalized samples are clamped to `[-1, 1]`.
-
-The default model-ready feature tensor uses:
+默认模型特征张量：
 
 ```text
 shape: 3 x 128 x 128
@@ -105,32 +115,34 @@ layout: CHW
 dtype: float32
 range: [0, 1]
 sample rate: 16000 Hz
-duration: first 5 seconds
+duration: 前 5 秒
 channels:
   0: 64-mel, hop 256
   1: 128-mel, hop 256
   2: 64-mel, hop 512
 ```
 
-Add a batch dimension before model inference:
+模型推理前通常需要补 batch 维度：
 
 ```text
 1 x 3 x 128 x 128
 ```
 
-The 3D mesh output contains:
+3D 网格输出：
 
 ```text
 vertices: Vec3[]
 normals: Vec3[]
 colors: ColorRGBA[]
-indices: triangle-list indices
-stats: time/frequency bin counts and triangle count
+indices: 三角形索引
+stats: 时间/频率网格数量、顶点数、三角形数
 ```
 
-## Model Hook
+## 模型接入
 
-This package keeps inference optional. A HarmonyOS classifier can consume the mel tensor through `@kit.MindSporeLiteKit` after converting an ONNX model to `.ms`:
+本包不内置模型。你可以将 `MelTensor` 输出作为 MindSpore Lite 模型输入。
+
+推荐模型输入：
 
 ```text
 input name: input
@@ -139,12 +151,20 @@ input layout: NCHW
 output shape: 1,N
 ```
 
-The conversion helper is in `scripts/convert_mindspore_lite.sh`.
+ONNX 到 MindSpore Lite `.ms` 的转换辅助脚本在：
 
-## Safety
+```text
+scripts/convert_mindspore_lite.sh
+```
 
-This toolkit is for signal processing, visualization, prototyping, and research workflows. It is not a medical device and does not provide diagnosis.
+## 线程建议
 
-## License
+声谱和 Mel 特征提取属于计算密集任务。`MelTensor.compute()` 内部会分段让出执行权，但生产项目仍建议放到 Worker 或 TaskPool 中执行，避免阻塞 UI。
+
+## 免责声明
+
+本工具包用于音频信号处理、可视化、原型开发和研究，不是医疗器械，也不提供诊断结论。
+
+## 许可证
 
 MIT

@@ -1,8 +1,8 @@
-# MindSpore Lite Model Hook
+# MindSpore Lite 模型接入
 
-This toolkit does not ship a model. It provides the tensor format that a model can consume.
+本工具包不内置模型，只提供模型可以消费的音频特征张量。
 
-Expected input:
+## 推荐输入格式
 
 ```text
 name: input
@@ -12,7 +12,11 @@ dtype: float32
 range: [0, 1]
 ```
 
-Example ONNX to MindSpore Lite conversion:
+`MelTensor.compute()` 返回的是 `3 x 128 x 128` 的 `Float32Array`，推理时通常按 `1 x 3 x 128 x 128` 喂给模型。
+
+## ONNX 转 MindSpore Lite
+
+示例命令：
 
 ```bash
 converter_lite \
@@ -23,6 +27,28 @@ converter_lite \
   --outputFile=model
 ```
 
-If you use Docker to run the converter, cache the MindSpore Lite package and Docker image between conversions. You only need to download a new image or converter package when you intentionally change their versions or delete the cache.
+仓库中提供了辅助脚本：
 
-For HarmonyOS, put the generated `.ms` file under your module rawfile resources and feed the tensor buffer to `@kit.MindSporeLiteKit`.
+```bash
+scripts/convert_mindspore_lite.sh model.onnx build/model
+```
+
+生成结果：
+
+```text
+build/model.ms
+```
+
+## Docker 与缓存
+
+如果通过 Docker 运行 converter，镜像和 MindSpore Lite 工具包可以缓存复用。只有在以下情况才需要重新下载：
+
+- 主动更换 MindSpore Lite 版本。
+- 删除了本地工具缓存目录。
+- 删除了本地 Docker 镜像。
+
+## HarmonyOS 端加载
+
+将生成的 `.ms` 文件放到 HarmonyOS 模块的 rawfile 资源目录，然后通过 `@kit.MindSporeLiteKit` 加载。
+
+推理输入使用 `AudioInput.melTensor()` 或 `MelTensor.compute()` 生成的张量数据。
